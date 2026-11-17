@@ -54,16 +54,27 @@ jobs:
           if (Test-Path .\dist\selftest.txt) { Get-Content .\dist\selftest.txt }
           if ($code -ne 0) { exit $code }
 
-      - name: Criar release
+      - name: Criar ou atualizar release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = $env:GITHUB_REF_NAME
-          gh release create $tag `
-            dist/Pulso.exe `
-            dist/Pulso-selfcontained.exe `
-            dist/SHA256SUMS.txt `
-            --title "Pulso $tag" `
-            --generate-notes `
-            --latest
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tag já existe; atualizando assets."
+            gh release upload $tag `
+              dist/Pulso.exe `
+              dist/Pulso-selfcontained.exe `
+              dist/SHA256SUMS.txt `
+              --clobber
+          }
+          else {
+            gh release create $tag `
+              dist/Pulso.exe `
+              dist/Pulso-selfcontained.exe `
+              dist/SHA256SUMS.txt `
+              --title "Pulso $tag" `
+              --generate-notes `
+              --latest
+          }
