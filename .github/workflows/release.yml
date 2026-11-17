@@ -1,0 +1,69 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish portátil
+        run: >
+          dotnet publish src/Pulso/Pulso.csproj -c Release -r win-x64
+          --self-contained false -p:PublishSingleFile=true
+          -p:DebugType=embedded -o dist
+
+      - name: Publish autocontida
+        run: >
+          dotnet publish src/Pulso/Pulso.csproj -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=embedded -o dist/self-contained
+
+      - name: Preparar assets
+        shell: pwsh
+        run: |
+          Copy-Item dist/self-contained/Pulso.exe dist/Pulso-selfcontained.exe
+          $files = @('dist/Pulso.exe', 'dist/Pulso-selfcontained.exe')
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash.ToLowerInvariant()
+            "$hash  $([System.IO.Path]::GetFileName($file))"
+          }
+          $lines | Set-Content dist/SHA256SUMS.txt -Encoding ASCII
+          Get-ChildItem dist -File | Select-Object Name, Length | Format-Table -AutoSize
+
+      - name: Selftest
+        shell: pwsh
+        run: |
+          .\dist\Pulso.exe --selftest
+          $code = $LASTEXITCODE
+          if (Test-Path .\dist\selftest.txt) { Get-Content .\dist\selftest.txt }
+          if ($code -ne 0) { exit $code }
+
+      - name: Criar release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          gh release create $tag `
+            dist/Pulso.exe `
+            dist/Pulso-selfcontained.exe `
+            dist/SHA256SUMS.txt `
+            --title "Pulso $tag" `
+            --generate-notes `
+            --latest

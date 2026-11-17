@@ -1,0 +1,61 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+          cache: true
+          cache-dependency-path: src/Pulso/Pulso.csproj
+
+      - name: Restore
+        run: dotnet restore src/Pulso/Pulso.csproj
+
+      - name: Build
+        run: dotnet build src/Pulso/Pulso.csproj -c Release --no-restore
+
+      - name: Publish single-file
+        run: >
+          dotnet publish src/Pulso/Pulso.csproj -c Release -r win-x64
+          --self-contained false -p:PublishSingleFile=true
+          -p:DebugType=embedded -o dist
+
+      - name: Selftest
+        shell: pwsh
+        run: |
+          .\dist\Pulso.exe --selftest
+          $code = $LASTEXITCODE
+          if (Test-Path .\dist\selftest.txt) { Get-Content .\dist\selftest.txt }
+          if ($code -ne 0) { exit $code }
+
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          .\dist\Pulso.exe --smoke
+          if (Test-Path .\dist\smoke.txt) { Get-Content .\dist\smoke.txt }
+          if (-not (Select-String -Path .\dist\smoke.txt -Pattern 'resultado=ok' -Quiet)) {
+            throw 'Smoke test falhou.'
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pulso-win-x64
+          path: dist/Pulso.exe
+          if-no-files-found: error
