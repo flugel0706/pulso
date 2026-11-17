@@ -1,0 +1,38 @@
+# Build
+bin/
+obj/
+dist/
+*.user
+*.suo
+.vs/
+*.binlog
+TestResults/
+
+# Dados locais de execução
+Pulso.config.json
+Pulso.log
+macros/
+*.log
+
+# Artefatos gerados pelos testes
+selftest.txt
+smoke.txt
+probe.txt
+compile.txt
+demo.txt
+version.txt
+help.txt
+open.txt
+
+# Macros locais (exemplos versionados são liberados abaixo)
+*.gmt
+*.pulso
+*.rec
+!examples/*.gmt
+!examples/*.pulso
+!examples/*.rec
+
+# Sistema
+Thumbs.db
+Desktop.ini
+.DS_Store

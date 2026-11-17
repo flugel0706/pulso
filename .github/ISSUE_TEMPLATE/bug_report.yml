@@ -1,0 +1,65 @@
+name: Bug report
+description: Reporte um comportamento incorreto no Pulso
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reportar. Preencha as informações abaixo para facilitar a reprodução.
+        Não inclua dados pessoais em logs ou macros.
+
+  - type: input
+    id: version
+    attributes:
+      label: Versão do Pulso
+      description: Saída de `Pulso.exe --version`
+      placeholder: "Pulso 3.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Versão do Windows
+      placeholder: "Windows 11 23H2 x64"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
+      placeholder: |
+        1. Abrir o Pulso
+        2. Apertar Ctrl+Alt+R
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento esperado
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportamento observado
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Log relevante
+      description: Trecho de `Pulso.log` (ao lado do executável ou em %APPDATA%\Pulso)
+      render: text
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Contexto adicional
+      description: Capturas de tela, macro `.gmt` mínima, escala de DPI, etc.
