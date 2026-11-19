@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Publica o Pulso em dist/ e roda os testes internos.
@@ -14,7 +14,7 @@
     Diretório de saída. Padrão: dist na raiz do repositório.
 
 .PARAMETER SelfContained
-    Também gera a edição autocontida em <Output>/self-contained.
+    Também gera a edição autocontida em <Output>/Pulso-selfcontained.exe.
 
 .PARAMETER SkipTests
     Não executa o selftest após a publicação.
@@ -61,9 +61,12 @@ if ($SelfContained) {
     Write-Host "==> Publicando edição autocontida" -ForegroundColor Cyan
     dotnet publish $project -c $Configuration -r win-x64 --self-contained true `
         -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true `
-        -p:DebugType=embedded -o $scDir
+        -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=embedded -o $scDir
     if ($LASTEXITCODE -ne 0) { throw "dotnet publish autocontido falhou (código $LASTEXITCODE)." }
-    $assets += (Join-Path $scDir 'Pulso.exe')
+    $scExe = Join-Path $outDir 'Pulso-selfcontained.exe'
+    Move-Item (Join-Path $scDir 'Pulso.exe') $scExe -Force
+    Remove-Item $scDir -Recurse -Force
+    $assets += $scExe
 }
 
 Write-Host "==> Gerando SHA256SUMS.txt" -ForegroundColor Cyan
@@ -97,6 +100,3 @@ if (-not $SkipTests) {
 Write-Host ""
 Write-Host "Build concluído:" -ForegroundColor Green
 Get-ChildItem $outDir -File | Select-Object Name, Length | Format-Table -AutoSize
-if ($SelfContained) {
-    Get-ChildItem (Join-Path $outDir 'self-contained') -File | Select-Object Name, Length | Format-Table -AutoSize
-}

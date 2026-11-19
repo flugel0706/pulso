@@ -77,9 +77,14 @@
 | `Native.cs` | P/Invoke: hooks, `SendInput`, janelas, métricas |
 | `EventEditDialog.cs` | Edição de um evento |
 | `NumericPrompt.cs` | Entrada numérica (escala, pausa) |
-| `Selftest.cs` | 12 testes internos |
+| `Selftest.cs` | 15 testes internos |
 | `AppLog.cs` | Log em arquivo |
 | `Paths.cs` | Diretório portátil e caminhos |
+| `Backdrop.cs`, `BackdropPanel.cs` | Foto de fundo: carga, recorte e composição por painel, sem cache de janela |
+| `MiniBar.cs` | Barra compacta: arte de fundo, leituras, controles e menu de contexto |
+| `HeroStrip.cs` | Faixa de operação com macro, eventos, duração e estado |
+| `Theme.cs`, `HudScrollBar.cs` | Passes de transparência e barra de rolagem do HUD |
+| `AboutForm.cs` | Diálogo Sobre no idioma visual do estúdio |
 | `DarkUi.cs`, `DarkRenderer.cs`, `DarkColorTable.cs` | Tema escuro |
 | `Palette.cs`, `UiFont.cs`, `AppIcon.cs`, `BrandMark.cs` | Cores, fontes, ícones |
 | `Hud.cs`, `HudButton.cs`, `HudChrome.cs`, `HudGrid.cs`, `HudKind.cs` | Componentes do HUD |

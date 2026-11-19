@@ -11,7 +11,9 @@ namespace Pulso;
 
 internal static class Program
 {
-	public const string Version = "3.0.0";
+	public const string Version = "3.1.0";
+
+	public const string ShortVersion = "v3.1";
 
 	[STAThread]
 	private static int Main(string[] args)
@@ -153,7 +155,7 @@ internal static class Program
 						return Smoke();
 					}
 					IL_0207:
-					WriteReport("version.txt", "Pulso 3.0.0");
+					WriteReport("version.txt", "Pulso 3.1.0");
 					return 0;
 					IL_0219:
 					WriteReport("help.txt", Usage());
@@ -232,7 +234,7 @@ internal static class Program
 
 	private static string Usage()
 	{
-		return "Pulso 3.0.0\r\n\r\nUso:\r\n  Pulso.exe                       abre o estúdio\r\n  Pulso.exe --version             mostra a versão\r\n  Pulso.exe --selftest            executa os testes internos (selftest.txt)\r\n  Pulso.exe --smoke               teste rápido de criação das janelas\r\n  Pulso.exe --demo <arquivo.gmt>  gera uma automação de demonstração\r\n  Pulso.exe --compile <in> <out>  compila uma macro em executável\r\n  Pulso.exe --play <arquivo>      reproduz uma macro sem abrir a interface\r\n  Pulso.exe <arquivo.gmt|.rec>    abre uma macro direto na linha do tempo\r\n\r\nUm executável com macro embutida reproduz sozinho ao ser aberto (F12 encerra).\r\n";
+		return "Pulso 3.1.0\r\n\r\nUso:\r\n  Pulso.exe                       abre o estúdio\r\n  Pulso.exe --version             mostra a versão\r\n  Pulso.exe --selftest            executa os testes internos (selftest.txt)\r\n  Pulso.exe --smoke               teste rápido de criação das janelas\r\n  Pulso.exe --demo <arquivo.gmt>  gera uma automação de demonstração\r\n  Pulso.exe --compile <in> <out>  compila uma macro em executável\r\n  Pulso.exe --play <arquivo>      reproduz uma macro sem abrir a interface\r\n  Pulso.exe <arquivo.gmt|.rec>    abre uma macro direto na linha do tempo\r\n\r\nUm executável com macro embutida reproduz sozinho ao ser aberto (F12 encerra).\r\n";
 	}
 
 	private static SelfExe.Trailer? SafeReadTrailer()
@@ -276,7 +278,7 @@ internal static class Program
 	{
 		StringBuilder stringBuilder = new StringBuilder();
 		stringBuilder.AppendLine("Pulso probe");
-		stringBuilder.AppendLine("version=3.0.0");
+		stringBuilder.AppendLine("version=3.1.0");
 		stringBuilder.AppendLine("exe=" + SelfExe.CurrentExe);
 		try
 		{

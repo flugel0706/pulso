@@ -4,7 +4,7 @@
 
 # Pulso
 
-**Estúdio de automação para Windows. Grave, edite, reproduza e compile macros.**
+**Estúdio tático de automação para Windows. Grave, edite, reproduza e compile macros.**
 
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](#requisitos)
 [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)](#requisitos)
@@ -14,6 +14,8 @@
 [Download](#download) · [Recursos](#recursos) · [Atalhos](#atalhos) · [Formatos](#formatos-de-arquivo) · [Compilar](#compilar-do-c%C3%B3digo-fonte) · [FAQ](docs/faq.md)
 
 <img src="assets/screenshot.png" alt="Interface do Pulso" width="880">
+
+<img src="assets/compact.png" alt="Barra compacta do Pulso" width="720">
 
 </div>
 
@@ -29,8 +31,8 @@ A versão pronta fica na página de **[Releases](../../releases/latest)**.
 
 | Edição | Arquivo | Tamanho | Requisito |
 |---|---|---|---|
-| Portátil | `Pulso.exe` | ~430 KB | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
-| Autocontida | `Pulso-selfcontained.exe` | ~70 MB | Nenhum — só Windows x64 |
+| Portátil | `Pulso.exe` | ~1,7 MB | [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
+| Autocontida | `Pulso-selfcontained.exe` | ~64 MB | Nenhum — só Windows x64 |
 
 > Não sabe qual escolher? Se o `Pulso.exe` não abrir, use a edição **autocontida**.
 > Cada release publica também o `SHA256SUMS.txt` para conferência de integridade.
@@ -72,12 +74,26 @@ Get-FileHash .\Pulso.exe -Algorithm SHA256
 - Linha do tempo com colunas de tempo, evento e detalhe
 - Editar evento individual, remover selecionados, limpar tudo
 - Inserir pausa a partir de um ponto
+- Duplicar os eventos selecionados (`Ctrl+D`), deslocando o restante da macro
+- Desfazer e refazer (`Ctrl+Z` / `Ctrl+Y`) com até 40 passos
 - Ajustar escala de tempo da macro inteira
 - Remover espera inicial
+- Apagar tudo em um clique (`Ctrl+Del`), na barra lateral ou no menu
+- Arquivos recentes no menu Arquivo (até 8 entradas)
 - Arrastar e soltar arquivos `.gmt`, `.pulso`, `.rec` e `.json` na janela
 
 ### Interface
-- Tema escuro, HUD compacto e barra mini
+- Tema tático noturno: paleta oliva e areia, tipografia condensada e cantos de HUD
+- Faixa de operação com nome da macro, eventos, duração e estado ao vivo
+- Fundo de operação embutido, desenhado por painel a partir do tamanho atual da
+  janela — sem esticar ao minimizar, maximizar ou redimensionar. Troque com um
+  `backdrop.jpg` ao lado do executável
+- **Barra compacta** com recorte cinematográfico do fundo, nome da macro, estado,
+  eventos, duração, velocidade, repetições e linha de progresso
+- Controles na barra compacta: gravar, reproduzir, pausar, parar, velocidade −/+,
+  repetição contínua, configurações, expandir e fechar
+- Menu de contexto da barra compacta (clique direito): abrir/salvar/salvar como,
+  repetição contínua, sempre no topo, configurações e fechar
 - Sempre no topo (opcional), bandeja do sistema, tela cheia
 - Persistência portátil: configuração e log ao lado do executável
   (ou em `%APPDATA%\Pulso` quando a pasta não é gravável)
@@ -107,6 +123,11 @@ Atalhos locais da janela:
 | Salvar | `Ctrl+S` |
 | Salvar como | `Ctrl+Shift+S` |
 | Exportar macro pronta (`.pulso`) | `Ctrl+E` |
+| Carregar macro pronta (`.pulso`) | `Ctrl+Shift+O` |
+| Desfazer / refazer | `Ctrl+Z` / `Ctrl+Y` (`Ctrl+Shift+Z`) |
+| Duplicar selecionados | `Ctrl+D` |
+| Remover selecionados | `Del` |
+| Apagar tudo | `Ctrl+Del` |
 | Configurações | `Ctrl+,` |
 | Tela cheia | `F11` |
 
@@ -159,11 +180,11 @@ Detalhes completos dos schemas em **[docs/formatos.md](docs/formatos.md)**.
 # Build de desenvolvimento
 dotnet build src/Pulso/Pulso.csproj -c Release
 
-# Publicar executável único portátil (~430 KB, requer .NET 8 Desktop Runtime)
+# Publicar executável único portátil (~1,7 MB, requer .NET 8 Desktop Runtime)
 dotnet publish src/Pulso/Pulso.csproj -c Release -r win-x64 `
   --self-contained false -p:PublishSingleFile=true -o dist
 
-# Publicar edição autocontida (sem dependências, ~70 MB)
+# Publicar edição autocontida (sem dependências, ~64 MB)
 dotnet publish src/Pulso/Pulso.csproj -c Release -r win-x64 `
   --self-contained true -p:PublishSingleFile=true `
   -p:EnableCompressionInSingleFile=true -o dist/self-contained
@@ -179,7 +200,7 @@ Ou use o script pronto:
 Validação:
 
 ```powershell
-.\dist\Pulso.exe --selftest   # 12 testes internos
+.\dist\Pulso.exe --selftest   # 15 testes internos
 .\dist\Pulso.exe --smoke      # criação das janelas
 ```
 

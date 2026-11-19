@@ -14,7 +14,7 @@ body:
     attributes:
       label: Versão do Pulso
       description: Saída de `Pulso.exe --version`
-      placeholder: "Pulso 3.0.0"
+      placeholder: "Pulso 3.1.0"
     validations:
       required: true
 

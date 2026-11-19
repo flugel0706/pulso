@@ -14,6 +14,21 @@ O Pulso é portátil: basta executar `Pulso.exe`. Não há instalador nem servi�
 A edição portátil exige o [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0).
 A edição autocontida não exige nada além do Windows x64.
 
+## Aparência
+
+O estúdio usa um tema tático noturno, com foto de operação ao fundo.
+
+- A imagem padrão vai embutida no `Pulso.exe`.
+- Para usar outra, salve um arquivo `backdrop.jpg` na mesma pasta do executável.
+- O Pulso escurece, dessatura e aplica vinheta na foto para manter o texto legível.
+- O recorte é refeito a partir do tamanho atual da janela a cada pintura: a foto
+  não estica ao minimizar, maximizar, restaurar ou redimensionar.
+- A faixa de operação no topo mostra a macro atual, os eventos, a duração e o estado.
+- A barra lateral concentra gravação, reprodução, arquivo e o aviso de `F12`.
+
+Fundo padrão: fotografia oficial do U.S. Marine Corps, *MARSOC Night Raid* (2016,
+domínio público). As imagens de terceiros continuam sob suas próprias licenças.
+
 ## Primeira macro
 
 1. Abra o Pulso.
@@ -68,11 +83,17 @@ Cada linha mostra `#`, tempo acumulado, tipo de evento e detalhe.
 
 - **Duplo clique** em um evento abre o editor (tempo, coordenadas, tecla, botão).
 - **Delete** remove os selecionados; **Ctrl+Delete** apaga a macro inteira
-  (com confirmação, se ativada).
+  (com confirmação, se ativada). O botão **Apagar tudo** na barra lateral e a
+  lixeira no topo fazem o mesmo sem precisar selecionar linhas.
+- **Ctrl+D** duplica o bloco selecionado logo depois, deslocando o restante
+  da macro e preservando os intervalos internos.
+- **Ctrl+Z** desfaz e **Ctrl+Y** (ou **Ctrl+Shift+Z**) refaz as últimas 40
+  alterações.
 - **Editar → Inserir pausa a partir daqui…** adiciona uma espera a partir do ponto escolhido.
 - **Editar → Ajustar escala de tempo…** multiplica todos os intervalos por um fator.
 - **Editar → Remover espera inicial** zera o tempo até o primeiro evento.
 - Arraste e solte `.gmt`, `.pulso`, `.rec` ou `.json` na janela para abrir.
+- **Arquivo → Abrir recente** lista os últimos 8 arquivos abertos ou salvos.
 
 ## Exportar e compilar
 
@@ -81,6 +102,10 @@ Cada linha mostra `#`, tempo acumulado, tipo de evento e detalhe.
 **Arquivo → Exportar macro pronta…** (`Ctrl+E`) gera um pacote com a macro e o
 preset de reprodução atual (velocidade, repetições, atrasos, coordenadas relativas,
 scan codes). É o formato ideal para compartilhar uma automação configurada.
+
+Para usar depois, abra com **Arquivo → Carregar macro pronta…** (`Ctrl+Shift+O`)
+ou dê dois cliques no `.pulso`. O Pulso aplica o preset e deixa a macro pronta
+para o **Reproduzir** (`F5`).
 
 ### Executável autônomo (`.exe`)
 
@@ -133,7 +158,18 @@ esses eventos são omitidos na exportação (o Pulso informa quantos ficaram de 
 
 ## Modo compacto e bandeja
 
-- **`Ctrl+Alt+M`** alterna o modo compacto (barra mini com gravar, reproduzir, parar e estado).
+- **`Ctrl+Alt+M`** alterna o modo compacto.
+- A barra compacta mostra o nome da macro, o estado, os eventos, a duração, a
+  velocidade e as repetições, com linha de progresso durante a reprodução.
+- Controles: **gravar**, **reproduzir**, **pausar**, **parar**, **velocidade −/+**,
+  **repetição contínua**, **configurações**, **expandir** e **fechar**.
+- Passe o mouse sobre um controle para ver a dica no rodapé da barra.
+- **Clique direito** na barra abre o menu com gravar/reproduzir, pausar, parar,
+  abrir, salvar, salvar como, repetição contínua, sempre no topo, configurações
+  e fechar.
+- Arraste a barra para mover; **duplo clique** volta à janela normal.
+- O modo compacto tem tamanho fixo e preserva o estado anterior da janela: ao
+  expandir, o Pulso volta ao tamanho normal ou maximizado de onde saiu.
 - Se **Minimizar para bandeja** estiver ativo, fechar a janela mantém o Pulso ativo na bandeja.
 - O menu da bandeja oferece gravar, reproduzir, pausar, parar e abrir o estúdio.
 

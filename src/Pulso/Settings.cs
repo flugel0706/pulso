@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -67,6 +68,8 @@ public sealed class Settings
 
 	public string LastFolder { get; set; } = "";
 
+	public List<string> RecentFiles { get; set; } = new List<string>();
+
 
 	public static string PathFile => Paths.SettingsFile;
 
@@ -120,6 +123,15 @@ public sealed class Settings
 		if (!Hotkey.Parse(s.HotkeyCompact).IsValid)
 		{
 			s.HotkeyCompact = "Ctrl+Alt+M";
+		}
+		if (s.RecentFiles == null)
+		{
+			s.RecentFiles = new List<string>();
+		}
+		s.RecentFiles.RemoveAll((string p) => string.IsNullOrWhiteSpace(p));
+		if (s.RecentFiles.Count > 8)
+		{
+			s.RecentFiles.RemoveRange(8, s.RecentFiles.Count - 8);
 		}
 		return s;
 	}

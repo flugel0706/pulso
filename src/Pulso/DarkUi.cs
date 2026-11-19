@@ -1,11 +1,42 @@
 using System;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace Pulso;
 
 public static class DarkUi
 {
+	private delegate bool EnumWindowProc(IntPtr hWnd, IntPtr lParam);
+
+	[DllImport("user32.dll")]
+	private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowProc lpEnumFunc, IntPtr lParam);
+
+	public static void DarkScrollbars(Control c)
+	{
+		if (c.Handle == IntPtr.Zero)
+		{
+			return;
+		}
+		try
+		{
+			Native.SetWindowTheme(c.Handle, "DarkMode_Explorer", null);
+			EnumChildWindows(c.Handle, delegate(IntPtr h, IntPtr l)
+			{
+				try
+				{
+					Native.SetWindowTheme(h, "DarkMode_Explorer", null);
+				}
+				catch
+				{
+				}
+				return true;
+			}, IntPtr.Zero);
+		}
+		catch
+		{
+		}
+	}
 	public static void DarkScroll(Control c)
 	{
 		Control c2 = c;
@@ -217,7 +248,7 @@ public static class DarkUi
 		};
 		g.AlternatingRowsDefaultCellStyle = new DataGridViewCellStyle
 		{
-			BackColor = Color.FromArgb(24, 27, 37),
+			BackColor = Palette.PanelAlt,
 			ForeColor = Palette.TextSoft,
 			SelectionBackColor = Palette.Selection,
 			SelectionForeColor = Color.White,
@@ -226,7 +257,6 @@ public static class DarkUi
 		g.RowTemplate.Height = 31;
 		g.RowsDefaultCellStyle.SelectionBackColor = Palette.Selection;
 		g.RowHeadersWidth = 4;
-		g.ScrollBars = ScrollBars.Vertical;
 		g.AllowUserToResizeRows = false;
 	}
 }

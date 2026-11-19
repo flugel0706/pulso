@@ -66,7 +66,7 @@ O Pulso tem testes embutidos, sem framework externo:
 Get-Content .\dist\selftest.txt
 ```
 
-Cobertura dos 12 testes:
+Cobertura dos 15 testes:
 
 1. Parse de atalho com acento (`Ctrl+Alt+Espaço`)
 2. Round-trip de texto de atalho
@@ -80,6 +80,9 @@ Cobertura dos 12 testes:
 10. Tamanho de `INPUT` para `SendInput` (40 bytes em x64)
 11. Round-trip de configuração
 12. Round-trip de pacote `.pulso`
+13. Round-trip de arquivos recentes
+14. Imagem de fundo embutida
+15. Composição do fundo em bitmap
 
 Smoke test de UI (cria as janelas sem interação):
 
@@ -114,8 +117,8 @@ Disparado por tags `v*`:
 Para lançar uma versão:
 
 ```powershell
-git tag v3.0.0
-git push origin v3.0.0
+git tag v3.1.0
+git push origin v3.1.0
 ```
 
 Atualize `Version`, `AssemblyVersion` e `FileVersion` em
@@ -132,7 +135,7 @@ O script:
 1. Confere `gh auth status`.
 2. Cria o repositório (se necessário) e configura descrição e tópicos.
 3. Faz commit e push da branch `main`.
-4. Cria a tag `v3.0.0` e a release com `dist/Pulso.exe`,
+4. Cria a tag `v3.1.0` e a release com `dist/Pulso.exe`,
    `dist/self-contained/Pulso.exe` e `SHA256SUMS.txt`.
 
 Requisitos: [GitHub CLI](https://cli.github.com/) autenticado (`gh auth login`) e

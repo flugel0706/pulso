@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Publica o repositório do Pulso no GitHub e cria a release.
@@ -19,7 +19,7 @@
     public (padrão) ou private.
 
 .PARAMETER Tag
-    Tag da release. Padrão: v3.0.0.
+    Tag da release. Padrão: v3.1.0.
 
 .PARAMETER Description
     Descrição do repositório no GitHub.
@@ -40,7 +40,7 @@ param(
     [ValidateSet('public', 'private')]
     [string]$Visibility = 'public',
 
-    [string]$Tag = 'v3.0.0',
+    [string]$Tag = 'v3.1.0',
 
     [string]$Description = 'Estúdio de automação para Windows: grave, edite, reproduza e compile macros. Alternativa aprimorada ao TinyTask.',
 

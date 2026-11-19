@@ -36,10 +36,11 @@ public sealed class HudButton : Control
 
 	public HudButton()
 	{
-		SetStyle(ControlStyles.UserPaint | ControlStyles.ResizeRedraw | ControlStyles.Selectable | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, value: true);
+		SetStyle(ControlStyles.UserPaint | ControlStyles.ResizeRedraw | ControlStyles.Selectable | ControlStyles.SupportsTransparentBackColor | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, value: true);
 		Font = UiFont.BodyBold;
 		ForeColor = Palette.Text;
 		Cursor = Cursors.Hand;
+		BackColor = Color.Transparent;
 		base.Size = new Size(120, 38);
 		base.TabStop = false;
 	}
@@ -99,7 +100,7 @@ public sealed class HudButton : Control
 		case HudKind.Primary:
 			_back = ((!base.Enabled) ? Palette.PanelAlt : (_pressed ? Palette.Blend(color, Color.Black, 0.22) : (_hover ? Palette.Blend(color, Color.White, 0.13) : color)));
 			_border = ((!base.Enabled) ? Palette.BorderSoft : Palette.Blend(color, Color.White, 0.18));
-			_text = (base.Enabled ? Color.White : Palette.Muted);
+			_text = (base.Enabled ? (Luma(color) > 0.55f ? Palette.Bg : Color.White) : Palette.Muted);
 			break;
 		case HudKind.Danger:
 			_back = ((!base.Enabled) ? Palette.PanelAlt : (_pressed ? Palette.Blend(color, Color.Black, 0.22) : (_hover ? Palette.Blend(color, Color.White, 0.12) : color)));
@@ -175,5 +176,10 @@ public sealed class HudButton : Control
 		{
 			TextRenderer.DrawText(graphics, Text, font, base.ClientRectangle, _text, TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.VerticalCenter);
 		}
+	}
+
+	private static float Luma(Color c)
+	{
+		return (0.299f * (float)c.R + 0.587f * (float)c.G + 0.114f * (float)c.B) / 255f;
 	}
 }

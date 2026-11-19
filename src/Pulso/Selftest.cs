@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -233,6 +235,34 @@ public static class Selftest
 		catch (Exception ex7)
 		{
 			Check("pacote: exceção", ok: false, ex7.Message);
+		}
+		try
+		{
+			Settings settings3 = new Settings
+			{
+				RecentFiles = new List<string> { "a.gmt", "b.pulso" }
+			};
+			Settings settings4 = JsonSerializer.Deserialize<Settings>(JsonSerializer.Serialize(settings3, Macro.JsonOpts), Macro.JsonOpts);
+			Check("recentes: JSON round-trip", settings4.RecentFiles.Count == 2 && settings4.RecentFiles[1] == "b.pulso", $"{settings4.RecentFiles.Count} itens");
+		}
+		catch (Exception ex8)
+		{
+			Check("recentes: exceção", ok: false, ex8.Message);
+		}
+		try
+		{
+			Check("fundo: imagem embutida", Backdrop.Available, Backdrop.Available ? $"{Backdrop.Source!.Width}x{Backdrop.Source!.Height}" : "sem imagem");
+			using Bitmap bitmap3 = new Bitmap(560, 360);
+			using (Graphics graphics3 = Graphics.FromImage(bitmap3))
+			{
+				Backdrop.Paint(graphics3, new Rectangle(0, 0, 560, 360), new Size(560, 360), Point.Empty, 0f);
+			}
+			bitmap3.Save(Path.Combine(Paths.BaseDir, "backdrop-test.png"), System.Drawing.Imaging.ImageFormat.Png);
+			Check("fundo: composição", true, "backdrop-test.png");
+		}
+		catch (Exception ex9)
+		{
+			Check("fundo: exceção", ok: false, ex9.Message);
 		}
 		sb.AppendLine();
 		StringBuilder stringBuilder = sb;

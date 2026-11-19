@@ -24,6 +24,12 @@ public sealed class MainForm : Form
 
 	private string? _readyName;
 
+	private readonly List<string> _undo = new List<string>();
+
+	private readonly List<string> _redo = new List<string>();
+
+	private const int UndoLimit = 40;
+
 	private bool _dirty;
 
 	private bool _recording;
@@ -38,7 +44,14 @@ public sealed class MainForm : Form
 
 	private readonly HudGrid _grid = new HudGrid();
 
-	private readonly Panel _chrome = new Panel();
+	private readonly HudScrollBar _vbar = new HudScrollBar();
+
+	private readonly BackdropPanel _chrome = new BackdropPanel
+	{
+		Dim = 0.12f
+	};
+
+	private readonly HeroStrip _hero = new HeroStrip();
 
 	private readonly BrandMark _brandMark = new BrandMark();
 
@@ -71,15 +84,27 @@ public sealed class MainForm : Form
 
 	private bool _maxed;
 
-	private readonly Panel _body = new Panel();
+	private readonly BackdropPanel _body = new BackdropPanel
+	{
+		Dim = 0.24f
+	};
 
-	private readonly Panel _sidebar = new Panel();
+	private readonly BackdropPanel _sidebar = new BackdropPanel
+	{
+		Dim = 0.28f
+	};
 
 	private readonly CardPanel _sideCard = new CardPanel();
 
-	private readonly Panel _work = new Panel();
+	private readonly BackdropPanel _work = new BackdropPanel
+	{
+		Dim = 0.24f
+	};
 
-	private readonly Panel _workTop = new Panel();
+	private readonly BackdropPanel _workTop = new BackdropPanel
+	{
+		Dim = 0.1f
+	};
 
 	private readonly CardPanel _gridCard = new CardPanel();
 
@@ -87,13 +112,14 @@ public sealed class MainForm : Form
 
 	private readonly Label _lblStatusNote = new Label();
 
-	private readonly Label _lblHotkeys = new Label();
-
 	private readonly StatusDot _statusDot = new StatusDot();
 
 	private readonly Label _lblStatusSub = new Label();
 
-	private readonly Panel _bottom = new Panel();
+	private readonly BackdropPanel _bottom = new BackdropPanel
+	{
+		Dim = 0.18f
+	};
 
 	private readonly Label _lblState = new Label();
 
@@ -141,38 +167,6 @@ public sealed class MainForm : Form
 		LeftAlign = true
 	};
 
-	private readonly HudButton _btnRecordMini = new HudButton
-	{
-		Kind = HudKind.Danger,
-		Accent = Palette.Danger,
-		Icon = ButtonIcon.Record,
-		TextVisible = false
-	};
-
-	private readonly HudButton _btnPlayMini = new HudButton
-	{
-		Kind = HudKind.Primary,
-		Accent = Palette.Accent,
-		Icon = ButtonIcon.Play,
-		TextVisible = false
-	};
-
-	private readonly HudButton _btnPauseMini = new HudButton
-	{
-		Kind = HudKind.Ghost,
-		Accent = Palette.Accent,
-		Icon = ButtonIcon.Pause,
-		TextVisible = false
-	};
-
-	private readonly HudButton _btnStopMini = new HudButton
-	{
-		Kind = HudKind.Ghost,
-		Accent = Palette.Danger,
-		Icon = ButtonIcon.Stop,
-		TextVisible = false
-	};
-
 	private readonly HudButton _btnInf = new HudButton
 	{
 		Kind = HudKind.Ghost,
@@ -194,21 +188,31 @@ public sealed class MainForm : Form
 
 	private readonly ToolStripMenuItem _miExportRec = new ToolStripMenuItem();
 
+	private readonly ToolStripMenuItem _miUndo = new ToolStripMenuItem();
+
+	private readonly ToolStripMenuItem _miRedo = new ToolStripMenuItem();
+
+	private readonly ToolStripMenuItem _miRecent = new ToolStripMenuItem();
+
 	private readonly ToolStripMenuItem _miCompact = new ToolStripMenuItem();
 
 	private readonly ToolStripMenuItem _miTopMost = new ToolStripMenuItem();
 
 	private MenuStrip _menu;
 
-	private Label? _miniState;
+	private ToolStripMenuItem? _miMiniLoop;
 
-	private Panel? _mini;
+	private ToolStripMenuItem? _miMiniTop;
 
-	private BrandMark? _miniMark;
+	private MiniBar? _miniBar;
 
-	private HudButton? _btnExpand;
+	private ContextMenuStrip? _miniMenu;
 
-	private HudButton? _btnMiniClose;
+	private bool _compactFromMax;
+
+	private readonly Stopwatch _playWatch = new Stopwatch();
+
+	private double _playTotalMs;
 
 	private bool _compact;
 
@@ -245,8 +249,8 @@ public sealed class MainForm : Form
 		_dirty = preloaded != null && path == null;
 		Text = "Pulso — Estúdio de Automação";
 		base.StartPosition = FormStartPosition.CenterScreen;
-		base.ClientSize = new Size(1120, 720);
-		MinimumSize = new Size(940, 560);
+		base.ClientSize = new Size(1160, 760);
+		MinimumSize = new Size(960, 580);
 		base.AutoScaleMode = AutoScaleMode.Dpi;
 		Font = UiFont.Body;
 		BackColor = Palette.Bg;
@@ -275,29 +279,28 @@ public sealed class MainForm : Form
 		base.Shown += delegate
 		{
 			DarkUi.DarkTitle(this);
+			DarkUi.DarkScrollbars(_grid);
+			DarkUi.DarkScrollbars(_sideCard);
 		};
 		_player.Status += delegate(string st)
 		{
 			string st2 = st;
 			Ui(delegate
 			{
-				string text = st2.ToUpperInvariant();
-				_lblState.Text = text;
-				if (_miniState != null)
-				{
-					_miniState.Text = text;
-				}
+				_lblState.Text = st2.ToUpperInvariant();
+				SyncMini();
 			});
 		};
 		_player.LoopProgress += delegate(int loop, int total)
 		{
 			Ui(delegate
 			{
-				_lblState.Text = ((total > 0) ? $"Reproduzindo {loop}/{total}" : $"Reproduzindo {loop}");
-				if (_miniState != null)
+				if (_s.Continuous && _playing)
 				{
-					_miniState.Text = _lblState.Text;
+					_playWatch.Restart();
 				}
+				_lblState.Text = ((total > 0) ? $"Reproduzindo {loop}/{total}" : $"Reproduzindo {loop}");
+				SyncMini();
 			});
 		};
 		_player.Finished += delegate
@@ -321,14 +324,19 @@ public sealed class MainForm : Form
 		ToolStripManager.Renderer = new DarkRenderer();
 		BuildChrome();
 		BuildMenu();
+		BuildHero();
 		BuildBody();
 		BuildBottomBar();
 		BuildMini();
 		BuildGrips();
 		base.Controls.Add(_body);
 		base.Controls.Add(_bottom);
+		base.Controls.Add(_hero);
 		base.Controls.Add(_menu);
 		base.Controls.Add(_chrome);
+		Theme.Glass(_chrome);
+		Theme.Glass(_workTop);
+		Theme.Glass(_bottom);
 		base.Shown += delegate
 		{
 			ModernWindow.Apply(this, rounded: true);
@@ -340,7 +348,7 @@ public sealed class MainForm : Form
 		_menu = new MenuStrip
 		{
 			Font = UiFont.Body,
-			BackColor = Palette.Bg,
+			BackColor = Palette.Bg2,
 			ForeColor = Palette.TextSoft,
 			Renderer = new DarkRenderer(),
 			Padding = new Padding(18, 2, 0, 2),
@@ -354,6 +362,12 @@ public sealed class MainForm : Form
 			NewMacro();
 		}));
 		toolStripMenuItem.DropDownItems.Add(Item("&Abrir…", Keys.O | Keys.Control, OpenMacro));
+		_miRecent.Text = "Abrir &recente";
+		_miRecent.DropDownOpening += delegate
+		{
+			BuildRecentMenu();
+		};
+		toolStripMenuItem.DropDownItems.Add(_miRecent);
 		_miSave.Text = "&Salvar";
 		_miSave.ShortcutKeys = Keys.S | Keys.Control;
 		_miSave.Click += delegate
@@ -379,8 +393,24 @@ public sealed class MainForm : Form
 		toolStripMenuItem.DropDownItems.Add(new ToolStripSeparator());
 		toolStripMenuItem.DropDownItems.Add(Item("Sai&r", Keys.F4 | Keys.Alt, base.Close));
 		ToolStripMenuItem toolStripMenuItem2 = new ToolStripMenuItem("&Editar");
+		_miUndo.Text = "&Desfazer";
+		_miUndo.ShortcutKeys = Keys.Z | Keys.Control;
+		_miUndo.Click += delegate
+		{
+			Undo();
+		};
+		toolStripMenuItem2.DropDownItems.Add(_miUndo);
+		_miRedo.Text = "&Refazer";
+		_miRedo.ShortcutKeys = Keys.Y | Keys.Control;
+		_miRedo.Click += delegate
+		{
+			Redo();
+		};
+		toolStripMenuItem2.DropDownItems.Add(_miRedo);
+		toolStripMenuItem2.DropDownItems.Add(new ToolStripSeparator());
 		toolStripMenuItem2.DropDownItems.Add(Item("&Remover selecionados", Keys.Delete, RemoveSelected));
 		toolStripMenuItem2.DropDownItems.Add(Item("&Editar evento…", Keys.None, EditSelected));
+		toolStripMenuItem2.DropDownItems.Add(Item("&Duplicar selecionados", Keys.D | Keys.Control, DuplicateSelected));
 		toolStripMenuItem2.DropDownItems.Add(Item("Inserir &pausa a partir daqui…", Keys.None, InsertPause));
 		toolStripMenuItem2.DropDownItems.Add(new ToolStripSeparator());
 		toolStripMenuItem2.DropDownItems.Add(Item("Ajustar &escala de tempo…", Keys.None, ScaleTimes));
@@ -437,15 +467,22 @@ public sealed class MainForm : Form
 		base.MainMenuStrip = _menu;
 	}
 
+	private void BuildHero()
+	{
+		_hero.Dock = DockStyle.Top;
+		_hero.Height = 96;
+		_hero.Callsign = "macro sem nome";
+	}
+
 	private void BuildBody()
 	{
 		_body.Dock = DockStyle.Fill;
 		_body.BackColor = Palette.Bg;
-		_body.Padding = new Padding(14, 8, 14, 12);
+		_body.Padding = new Padding(16, 10, 16, 14);
 		_sidebar.Dock = DockStyle.Left;
-		_sidebar.Width = 286;
+		_sidebar.Width = 306;
 		_sidebar.BackColor = Palette.Bg;
-		_sidebar.Padding = new Padding(0, 0, 14, 0);
+		_sidebar.Padding = new Padding(0, 0, 16, 0);
 		_work.Dock = DockStyle.Fill;
 		_work.BackColor = Palette.Bg;
 		_work.Padding = new Padding(4, 0, 0, 0);
@@ -458,7 +495,8 @@ public sealed class MainForm : Form
 	private void BuildSidebar()
 	{
 		_sideCard.Dock = DockStyle.Fill;
-		_sideCard.Radius = 16;
+		_sideCard.Radius = 4;
+		_sideCard.Brackets = true;
 		_sideCard.Fill = Palette.Panel;
 		_sideCard.BorderColor = Palette.BorderSoft;
 		_sideCard.Padding = new Padding(18, 14, 14, 12);
@@ -473,7 +511,7 @@ public sealed class MainForm : Form
 			Margin = new Padding(0)
 		};
 		DarkUi.DarkScroll(col);
-		Add(Section("SESSÃO"), 18, 4);
+		Add(Section("CENTRAL DE OPERAÇÕES"), 18, 4);
 		Panel panel = new Panel
 		{
 			Width = 236,
@@ -645,26 +683,29 @@ public sealed class MainForm : Form
 		panel4.Controls.Add(hudButton4);
 		panel4.Controls.Add(hudButton5);
 		Add(panel4, 119, 10);
-		Add(Section("ATALHOS"), 18, 2);
-		_lblHotkeys.AutoSize = false;
-		_lblHotkeys.Width = 236;
-		_lblHotkeys.Height = 56;
-		_lblHotkeys.Font = UiFont.MonoSmall;
-		_lblHotkeys.ForeColor = Palette.Muted;
-		_lblHotkeys.BackColor = Palette.Panel;
-		_lblHotkeys.Text = "";
-		Add(_lblHotkeys, 56, 4);
-		Label value3 = new Label
+		Label hint = new Label
 		{
-			Text = "F12 interrompe tudo, sempre.",
+			Text = "F1 abre a lista completa de atalhos",
 			Width = 236,
 			Height = 16,
 			Font = UiFont.Tiny,
-			ForeColor = Palette.Alpha(Palette.Danger, 210),
+			ForeColor = Palette.Muted,
 			BackColor = Palette.Panel,
 			Margin = new Padding(0)
 		};
-		col.Controls.Add(value3);
+		col.Controls.Add(hint);
+		Label footer = new Label
+		{
+			Text = "F12  //  PARADA DE EMERGÊNCIA",
+			Dock = DockStyle.Bottom,
+			Height = 24,
+			Font = UiFont.TinyBold,
+			ForeColor = Palette.Danger,
+			BackColor = Palette.Panel,
+			TextAlign = ContentAlignment.MiddleLeft,
+			Padding = new Padding(2, 0, 0, 6)
+		};
+		_sideCard.Controls.Add(footer);
 		_sideCard.Controls.Add(col);
 		_sidebar.Controls.Add(_sideCard);
 		void Add(Control c, int height, int marginBottom = 8)
@@ -678,11 +719,11 @@ public sealed class MainForm : Form
 		{
 			return new Label
 			{
-				Text = text,
+				Text = "// " + text,
 				Width = 236,
 				Height = 18,
 				Font = UiFont.TinyBold,
-				ForeColor = Palette.Muted,
+				ForeColor = Palette.Alpha(Palette.Accent, 200),
 				BackColor = Palette.Panel,
 				Margin = new Padding(0, 0, 0, 8),
 				TextAlign = ContentAlignment.MiddleLeft
@@ -698,7 +739,7 @@ public sealed class MainForm : Form
 		_workTop.Padding = new Padding(4, 2, 0, 6);
 		Label value = new Label
 		{
-			Text = "Linha do tempo",
+			Text = "// LINHA DO TEMPO",
 			AutoSize = true,
 			Location = new Point(6, 2),
 			Font = UiFont.Display,
@@ -805,12 +846,13 @@ public sealed class MainForm : Form
 		_workTop.Controls.Add(value);
 		_workTop.Controls.Add(_lblWorkFile);
 		_gridCard.Dock = DockStyle.Fill;
-		_gridCard.Radius = 16;
+		_gridCard.Radius = 4;
 		_gridCard.Fill = Palette.Panel;
 		_gridCard.BorderColor = Palette.BorderSoft;
-		_gridCard.Padding = new Padding(10, 4, 10, 10);
+		_gridCard.Padding = new Padding(10, 4, 22, 10);
 		_grid.Dock = DockStyle.Fill;
 		_grid.VirtualMode = true;
+		_grid.ScrollBars = ScrollBars.None;
 		_grid.RowHeadersVisible = false;
 		_grid.AllowUserToAddRows = false;
 		_grid.AllowUserToDeleteRows = false;
@@ -872,9 +914,38 @@ public sealed class MainForm : Form
 		contextMenuStrip.Items.Add(new ToolStripSeparator());
 		contextMenuStrip.Items.Add(Item("Remover selecionados", Keys.None, RemoveSelected));
 		_grid.ContextMenuStrip = contextMenuStrip;
+		_grid.RowsAdded += delegate
+		{
+			_vbar.Sync();
+		};
+		_grid.RowsRemoved += delegate
+		{
+			_vbar.Sync();
+		};
+		_grid.Scroll += delegate
+		{
+			_vbar.Sync();
+		};
+		_grid.SizeChanged += delegate
+		{
+			LayoutScrollbar();
+		};
 		_gridCard.Controls.Add(_grid);
+		_vbar.Grid = _grid;
+		_gridCard.Controls.Add(_vbar);
+		_vbar.BringToFront();
+		_gridCard.Resize += delegate
+		{
+			LayoutScrollbar();
+		};
 		_work.Controls.Add(_gridCard);
 		_work.Controls.Add(_workTop);
+	}
+
+	private void LayoutScrollbar()
+	{
+		int height = Math.Max(8, _grid.Height - 4);
+		_vbar.Bounds = new Rectangle(_gridCard.Width - 16, _grid.Top + 2, 10, height);
 	}
 
 	private void BuildChrome()
@@ -900,7 +971,7 @@ public sealed class MainForm : Form
 		_brandTitle.Font = UiFont.Title;
 		_brandTitle.ForeColor = Palette.Text;
 		_brandTitle.BackColor = Palette.Bg;
-		_brandTitle.Text = "Pulso";
+		_brandTitle.Text = "PULSO";
 		_brandTitle.MouseDown += ChromeDrag;
 		_brandTitle.DoubleClick += delegate
 		{
@@ -911,7 +982,7 @@ public sealed class MainForm : Form
 		_brandSub.Font = UiFont.Tiny;
 		_brandSub.ForeColor = Palette.Muted;
 		_brandSub.BackColor = Palette.Bg;
-		_brandSub.Text = "estúdio de automação";
+		_brandSub.Text = "ESTÚDIO TÁTICO  //  v3.1";
 		_brandSub.MouseDown += ChromeDrag;
 		_lblChromeFile.AutoSize = false;
 		_lblChromeFile.Location = new Point(206, 14);
@@ -919,7 +990,7 @@ public sealed class MainForm : Form
 		_lblChromeFile.Font = UiFont.MonoSmall;
 		_lblChromeFile.ForeColor = Palette.Muted;
 		_lblChromeFile.BackColor = Palette.Bg;
-		_lblChromeFile.TextAlign = ContentAlignment.MiddleLeft;
+		_lblChromeFile.TextAlign = ContentAlignment.MiddleRight;
 		_lblChromeFile.Text = "macro sem nome";
 		_lblChromeFile.MouseDown += ChromeDrag;
 		HudButton[] array = new HudButton[3] { _btnMin, _btnMax, _btnClose };
@@ -1251,110 +1322,42 @@ public sealed class MainForm : Form
 
 	private void BuildMini()
 	{
-		if (_mini != null)
+		if (_miniBar != null)
 		{
 			return;
 		}
-		_mini = new Panel
+		_miniBar = new MiniBar
 		{
 			Dock = DockStyle.Fill,
-			BackColor = Palette.Bg,
 			Visible = false
 		};
-		_mini.Paint += delegate(object? _, PaintEventArgs e)
+		_miniBar.RecordClick += ToggleRecording;
+		_miniBar.PlayClick += StartPlayback;
+		_miniBar.PauseClick += TogglePause;
+		_miniBar.StopClick += EmergencyStop;
+		_miniBar.SpeedDownClick += delegate
 		{
-			Graphics graphics = e.Graphics;
-			graphics.SmoothingMode = SmoothingMode.AntiAlias;
-			using Pen pen = new Pen(Palette.Alpha(Palette.Accent, 120));
-			graphics.DrawRectangle(pen, 0, 0, _mini.Width - 1, _mini.Height - 1);
-			using SolidBrush brush = new SolidBrush(Palette.Accent);
-			graphics.FillRectangle(brush, 1, 1, _mini.Width - 2, 2);
+			ChangeSpeed(-5);
+			SyncMini();
 		};
-		_mini.MouseDown += ChromeDrag;
-		_mini.DoubleClick += delegate
+		_miniBar.SpeedUpClick += delegate
+		{
+			ChangeSpeed(5);
+			SyncMini();
+		};
+		_miniBar.LoopClick += delegate
+		{
+			ToggleContinuous();
+			SyncMini();
+		};
+		_miniBar.SettingsClick += OpenSettings;
+		_miniBar.MoreClick += ShowMiniMenu;
+		_miniBar.ExpandClick += delegate
 		{
 			SetCompact(on: false);
 		};
-		_miniMark = new BrandMark
-		{
-			Size = new Size(28, 28),
-			Location = new Point(18, 32),
-			BackColor = Palette.Bg
-		};
-		_miniMark.MouseDown += ChromeDrag;
-		_miniMark.DoubleClick += delegate
-		{
-			SetCompact(on: false);
-		};
-		_miniState = new Label
-		{
-			Dock = DockStyle.Fill,
-			Text = "Pronto",
-			Font = UiFont.Title,
-			ForeColor = Palette.Text,
-			BackColor = Palette.Bg,
-			TextAlign = ContentAlignment.MiddleLeft,
-			Padding = new Padding(60, 0, 350, 0)
-		};
-		_miniState.MouseDown += ChromeDrag;
-		_miniState.DoubleClick += delegate
-		{
-			SetCompact(on: false);
-		};
-		FlowLayoutPanel flow = new FlowLayoutPanel
-		{
-			Dock = DockStyle.Right,
-			Width = 338,
-			BackColor = Palette.Bg,
-			Padding = new Padding(0, 26, 10, 0),
-			WrapContents = false
-		};
-		_btnMiniClose = new HudButton
-		{
-			Icon = ButtonIcon.Close,
-			Kind = HudKind.Bare,
-			Accent = Palette.Danger
-		};
-		_btnExpand = new HudButton
-		{
-			Icon = ButtonIcon.Expand,
-			Kind = HudKind.Ghost,
-			Accent = Palette.Accent
-		};
-		AddMini(_btnMiniClose, "Fechar o Pulso", delegate
-		{
-			Close();
-		});
-		AddMini(_btnExpand, "Voltar à janela normal", delegate
-		{
-			SetCompact(on: false);
-		});
-		AddMini(_btnStopMini, "Parar tudo", EmergencyStop);
-		AddMini(_btnPauseMini, "Pausar / continuar", TogglePause);
-		AddMini(_btnPlayMini, "Reproduzir", StartPlayback);
-		AddMini(_btnRecordMini, "Gravar / parar", delegate
-		{
-			ToggleRecording();
-		});
-		_mini.Controls.Add(flow);
-		_mini.Controls.Add(_miniMark);
-		_mini.Controls.Add(_miniState);
-		base.Controls.Add(_mini);
-		void AddMini(HudButton b, string tip, Action act)
-		{
-			Action act2 = act;
-			b.Width = 40;
-			b.Height = 40;
-			b.Radius = 9;
-			b.TextVisible = false;
-			b.Margin = new Padding(4, 0, 0, 0);
-			b.Click += delegate
-			{
-				act2();
-			};
-			_tips.SetToolTip(b, tip);
-			flow.Controls.Add(b);
-		}
+		_miniBar.CloseClick += Close;
+		base.Controls.Add(_miniBar);
 	}
 
 	private void SetCompact(bool on)
@@ -1366,44 +1369,148 @@ public sealed class MainForm : Form
 		if (on)
 		{
 			BuildMini();
-			_normalBounds = ((base.WindowState == FormWindowState.Normal) ? base.Bounds : base.RestoreBounds);
+			_normalBounds = (_maxed ? (_maxRestore.IsEmpty ? base.RestoreBounds : _maxRestore) : ((base.WindowState == FormWindowState.Normal) ? base.Bounds : base.RestoreBounds));
+			_compactFromMax = _maxed;
 			_compact = true;
 			_chrome.Visible = false;
 			_menu.Visible = false;
 			_body.Visible = false;
 			_bottom.Visible = false;
-			_mini.Visible = true;
+			_hero.Visible = false;
 			if (_maxed)
 			{
 				_maxed = false;
-				base.Bounds = _maxRestore;
+				base.Bounds = (_maxRestore.IsEmpty ? _normalBounds : _maxRestore);
 			}
-			MinimumSize = new Size(500, 92);
-			base.ClientSize = new Size(500, 92);
+			Size size = new Size(LogicalToDeviceUnits(MiniBar.BaseWidth), LogicalToDeviceUnits(MiniBar.BaseHeight));
+			MinimumSize = size;
+			MaximumSize = size;
+			base.ClientSize = size;
+			_miniBar!.Visible = true;
+			_miniBar.BringToFront();
 			base.TopMost = true;
+			SyncMini();
 		}
 		else
 		{
 			_compact = false;
+			MaximumSize = Size.Empty;
+			MinimumSize = new Size(960, 580);
 			_chrome.Visible = true;
 			_menu.Visible = true;
 			_body.Visible = true;
 			_bottom.Visible = true;
-			if (_mini != null)
+			_hero.Visible = true;
+			if (_miniBar != null)
 			{
-				_mini.Visible = false;
+				_miniBar.Visible = false;
 			}
-			MinimumSize = new Size(940, 560);
 			if (!_normalBounds.IsEmpty)
 			{
 				base.Bounds = _normalBounds;
 			}
+			if (_compactFromMax)
+			{
+				ToggleMax();
+			}
+			_compactFromMax = false;
 			base.TopMost = _s.TopMost;
 		}
 		_miCompact.Checked = _compact;
 		LayoutGrips();
 		UpdateStateUi();
 		Invalidate(invalidateChildren: true);
+	}
+
+	private void SyncMini()
+	{
+		if (_miniBar == null)
+		{
+			return;
+		}
+		_miniBar.Callsign = ((_currentPath != null) ? Path.GetFileName(_currentPath) : ((!string.IsNullOrEmpty(_readyName)) ? _readyName : "macro sem nome"));
+		_miniBar.Duration = _lblDur.Text;
+		_miniBar.EventCount = (_recording ? _engine.EventCount : _macro.Events.Count);
+		_miniBar.StateText = _lblState.Text;
+		_miniBar.Recording = _recording;
+		_miniBar.Playing = _playing;
+		_miniBar.Paused = _player.IsPaused;
+		_miniBar.SpeedPercent = _s.SpeedPercent;
+		_miniBar.Loops = _s.Loops;
+		_miniBar.Continuous = _s.Continuous;
+		if (!_playing || _playTotalMs <= 0.0)
+		{
+			_miniBar.Progress = -1.0;
+		}
+		else
+		{
+			_miniBar.Progress = _playWatch.Elapsed.TotalMilliseconds / _playTotalMs;
+		}
+	}
+
+	private void ShowMiniMenu()
+	{
+		if (_miniMenu == null)
+		{
+			ContextMenuStrip menu = new ContextMenuStrip
+			{
+				Font = UiFont.Body,
+				BackColor = Palette.Bg2,
+				ForeColor = Palette.TextSoft,
+				Renderer = new DarkRenderer()
+			};
+			menu.Items.Add(Item("Gravar / parar", Keys.None, ToggleRecording));
+			menu.Items.Add(Item("Reproduzir", Keys.None, StartPlayback));
+			menu.Items.Add(Item("Pausar / continuar", Keys.None, TogglePause));
+			menu.Items.Add(Item("Parar tudo (F12)", Keys.None, EmergencyStop));
+			menu.Items.Add(new ToolStripSeparator());
+			menu.Items.Add(Item("Abrir macro…", Keys.None, OpenMacro));
+			menu.Items.Add(Item("Salvar", Keys.None, delegate
+			{
+				SaveMacro(saveAs: false);
+			}));
+			menu.Items.Add(Item("Salvar como…", Keys.None, delegate
+			{
+				SaveMacro(saveAs: true);
+			}));
+			menu.Items.Add(new ToolStripSeparator());
+			_miMiniLoop = Item("Repetir continuamente", Keys.None, delegate
+			{
+				ToggleContinuous();
+				SyncMini();
+			});
+			_miMiniLoop.CheckOnClick = true;
+			menu.Items.Add(_miMiniLoop);
+			_miMiniTop = Item("Sempre no topo", Keys.None, delegate
+			{
+				if (_miMiniTop != null)
+				{
+					_miTopMost.Checked = _miMiniTop.Checked;
+				}
+			});
+			_miMiniTop.CheckOnClick = true;
+			menu.Items.Add(_miMiniTop);
+			menu.Items.Add(new ToolStripSeparator());
+			menu.Items.Add(Item("Configurações…", Keys.None, OpenSettings));
+			menu.Items.Add(Item("Voltar à janela normal", Keys.None, delegate
+			{
+				SetCompact(on: false);
+			}));
+			menu.Items.Add(Item("Fechar o Pulso", Keys.None, Close));
+			menu.Opening += delegate
+			{
+				if (_miMiniLoop != null)
+				{
+					_miMiniLoop.Checked = _s.Continuous;
+				}
+				if (_miMiniTop != null)
+				{
+					_miMiniTop.Checked = _s.TopMost;
+				}
+			};
+			_miniMenu = menu;
+		}
+		_miniMenu.Show(Cursor.Position);
 	}
 
 	private void ToggleFullScreen()
@@ -1432,12 +1539,14 @@ public sealed class MainForm : Form
 	{
 		_s.SpeedPercent = Math.Clamp(_s.SpeedPercent + delta, 5, 2000);
 		_lblSpeedVal.Text = _s.SpeedPercent + "%";
+		SyncMini();
 	}
 
 	private void ChangeLoops(int delta)
 	{
 		_s.Loops = Math.Clamp(_s.Loops + delta, 1, 100000);
 		_lblLoopsVal.Text = _s.Loops.ToString();
+		SyncMini();
 	}
 
 	private void ToggleContinuous()
@@ -1446,6 +1555,7 @@ public sealed class MainForm : Form
 		_btnInf.Active = _s.Continuous;
 		_btnInf.Invalidate();
 		_tips.SetToolTip(_btnInf, _s.Continuous ? "Repetição contínua ativa — clique para desligar" : "Repetir continuamente");
+		SyncMini();
 	}
 
 	private static ToolStripMenuItem Item(string text, Keys keys, Action onClick)
@@ -1573,7 +1683,6 @@ public sealed class MainForm : Form
 		_btnInf.Active = _s.Continuous;
 		_btnInf.Invalidate();
 		_miTopMost.Checked = _s.TopMost;
-		_lblHotkeys.Text = $"Gravar        {_s.HotkeyRecord}\r\nReproduzir    {_s.HotkeyPlay}\r\nPausar        {_s.HotkeyPause}";
 		_grid.EmptyHint = "Grave sua primeira macro com " + _s.HotkeyRecord + " ou arraste um arquivo .gmt";
 		_tips.SetToolTip(_btnRecord, "Gravar / parar gravação (" + _s.HotkeyRecord + ")");
 		_tips.SetToolTip(_btnPlay, "Reproduzir macro (" + _s.HotkeyPlay + ")");
@@ -1644,8 +1753,10 @@ public sealed class MainForm : Form
 	{
 		string text = ((_currentPath != null) ? Path.GetFileName(_currentPath) : ((!string.IsNullOrEmpty(_readyName)) ? _readyName : "macro sem nome"));
 		Text = "Pulso — " + text + (_dirty ? " *" : "");
+		_hero.Callsign = text;
 		_lblChromeFile.Text = text + (_dirty ? "  •  não salvo" : "");
 		_lblWorkFile.Text = text + (_dirty ? "  •  não salvo" : "");
+		SyncMini();
 	}
 
 	private void UpdateStateUi()
@@ -1657,25 +1768,16 @@ public sealed class MainForm : Form
 		_statusDot.On = _recording || _playing;
 		_lblStatusSub.Text = (_recording ? "Capturando mouse e teclado" : ((!_playing) ? ((!string.IsNullOrEmpty(_readyName) && !_macro.IsEmpty) ? "Macro pronta para uso" : "Aguardando uma ação") : (_player.IsPaused ? "Reprodução pausada" : "Executando a automação")));
 		_lblStatusNote.Text = (_recording ? "Gravação em andamento — use o atalho para encerrar" : (_playing ? "Reprodução em andamento — F12 interrompe tudo" : ((!string.IsNullOrEmpty(_readyName) && !_macro.IsEmpty) ? "Macro pronta — aperte Reproduzir (F5)" : "Pronto para gravar")));
-		if (_miniState != null)
-		{
-			_miniState.Text = text;
-			_miniState.ForeColor = _lblState.ForeColor;
-		}
 		_btnRecord.Text = (_recording ? "Parar gravação" : "Gravar");
 		_btnPlay.Text = "Reproduzir";
 		_btnRecord.Active = _recording;
 		_btnPlay.Active = _playing && !_player.IsPaused;
-		_btnRecordMini.Active = _recording;
-		_btnPlayMini.Active = _playing && !_player.IsPaused;
 		_btnPlay.Enabled = !_recording && !_playing && !_macro.IsEmpty;
 		_btnPause.Enabled = _playing;
 		_btnStop.Enabled = _recording || _playing;
-		_btnPlayMini.Enabled = _btnPlay.Enabled;
-		_btnPauseMini.Enabled = _playing;
-		_btnStopMini.Enabled = _recording || _playing;
 		_miSave.Enabled = !_macro.IsEmpty;
 		_miExportRec.Enabled = !_macro.IsEmpty;
+		UpdateUndoUi();
 		UpdateCounters();
 	}
 
@@ -1685,6 +1787,11 @@ public sealed class MainForm : Form
 		_lblCount.Text = num.ToString("N0");
 		double value = (_recording ? (DateTime.Now - _recStart).TotalSeconds : ((double)_macro.Duration / 1000.0));
 		_lblDur.Text = $"{value:N1} s";
+		_hero.EventCount = num;
+		_hero.Duration = $"{value:N1} s";
+		_hero.Mode = (_recording ? "Gravando" : (_playing ? (_player.IsPaused ? "Pausado" : "Executando") : "Pronto"));
+		_hero.Live = _recording || _playing;
+		SyncMini();
 	}
 
 	private void SetRowCount()
@@ -1719,11 +1826,8 @@ public sealed class MainForm : Form
 			string text = $"Gravando  {value:mm\\:ss}";
 			_lblState.Text = text;
 			_lblStatusSub.Text = "Capturando mouse e teclado";
-			if (_miniState != null)
-			{
-				_miniState.Text = text;
-			}
 		}
+		SyncMini();
 	}
 
 	public void OnKeyActivity(int vk, bool down)
@@ -1878,6 +1982,7 @@ public sealed class MainForm : Form
 		_readyName = null;
 		_lastRowCount = -1;
 		SetRowCount();
+		ClearHistory();
 		_down.Clear();
 		if (suppressVk != 0)
 		{
@@ -1931,6 +2036,13 @@ public sealed class MainForm : Form
 				return;
 			}
 			_playing = true;
+			double num = (_s.Instant ? 0.0 : ((double)_macro.Duration * (double)(_s.Continuous ? 1 : _s.Loops) * 100.0 / (double)Math.Max(1, _s.SpeedPercent)));
+			if (num > 0.0 && !_s.Continuous)
+			{
+				num += (double)_s.StartDelayMs + (double)_s.LoopDelayMs * (double)Math.Max(0, _s.Loops - 1);
+			}
+			_playTotalMs = num;
+			_playWatch.Restart();
 			UpdateStateUi();
 			_player.Start(_macro, _s);
 		}
@@ -1943,17 +2055,22 @@ public sealed class MainForm : Form
 			if (_player.IsPaused)
 			{
 				_player.Resume();
+				_playWatch.Start();
 			}
 			else
 			{
 				_player.Pause();
+				_playWatch.Stop();
 			}
+			SyncMini();
 		}
 	}
 
 	private void OnPlaybackFinished()
 	{
 		_playing = false;
+		_playWatch.Reset();
+		_playTotalMs = 0.0;
 		UpdateStateUi();
 	}
 
@@ -1973,11 +2090,9 @@ public sealed class MainForm : Form
 		_statusDot.On = false;
 		_lblStatusSub.Text = (flag ? "Interrompido pela tecla de emergência" : "Aguardando uma ação");
 		_lblStatusNote.Text = (flag ? "Tudo parado — pronto para recomeçar" : "Pronto para gravar");
-		if (_miniState != null)
-		{
-			_miniState.Text = _lblState.Text;
-			_miniState.ForeColor = Palette.Gold;
-		}
+		_playWatch.Reset();
+		_playTotalMs = 0.0;
+		SyncMini();
 	}
 
 	private void NewMacro()
@@ -1990,6 +2105,7 @@ public sealed class MainForm : Form
 			_dirty = false;
 			_lastRowCount = -1;
 			SetRowCount();
+			ClearHistory();
 			RefreshTitle();
 			UpdateStateUi();
 		}
@@ -2062,6 +2178,8 @@ public sealed class MainForm : Form
 		_currentPath = ((flag || text == ".rec") ? null : path);
 		_readyName = (flag ? Path.GetFileNameWithoutExtension(path) : null);
 		_s.LastFolder = Path.GetDirectoryName(path) ?? "";
+		AddRecent(path);
+		ClearHistory();
 		_dirty = text == ".rec";
 		_lastRowCount = -1;
 		SetRowCount();
@@ -2100,6 +2218,7 @@ public sealed class MainForm : Form
 			_currentPath = text;
 			_readyName = null;
 			_s.LastFolder = Path.GetDirectoryName(text) ?? "";
+			AddRecent(text);
 			_dirty = false;
 			RefreshTitle();
 			_lblState.Text = "Salvo: " + Path.GetFileName(text);
@@ -2308,17 +2427,23 @@ public sealed class MainForm : Form
 
 	private void ShowAbout()
 	{
-		MessageBox.Show(this, "Pulso 3.0\r\nEstúdio de automação para Windows\r\n\r\n• Gravação por eventos reais, sem perder cliques\r\n• Linha do tempo editável com atalhos próprios\r\n• Reprodução com velocidade, repetições, espera e pausa\r\n• Compilação para .exe autônomo\r\n• Importação/exportação do formato TinyTask .rec\r\n\r\nInterface redesenhada para Windows 10/11.", "Sobre o Pulso", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+		using AboutForm aboutForm = new AboutForm();
+		aboutForm.ShowDialog(this);
 	}
 
 	private void RemoveSelected()
 	{
+		if (_grid.SelectedRows.Count == 0 && _grid.CurrentRow == null)
+		{
+			return;
+		}
+		if (_recording || _playing)
+		{
+			return;
+		}
+		PushUndo();
 		if (_grid.SelectedRows.Count == 0)
 		{
-			if (_grid.CurrentRow == null)
-			{
-				return;
-			}
 			_macro.Events.RemoveAt(_grid.CurrentRow.Index);
 		}
 		else
@@ -2356,6 +2481,7 @@ public sealed class MainForm : Form
 		using EventEditDialog eventEditDialog = new EventEditDialog(_macro.Events[index], index);
 		if (ShowDialogSafe(eventEditDialog) == DialogResult.OK)
 		{
+			PushUndo();
 			_macro.Events[index] = eventEditDialog.Result;
 			_macro.Events.Sort((MacroEvent a, MacroEvent b) => a.T.CompareTo(b.T));
 			AfterEdit();
@@ -2374,6 +2500,7 @@ public sealed class MainForm : Form
 		int? num = NumericPrompt.Ask(this, "Inserir pausa", $"Adiar em quantos milissegundos todos os eventos a partir do evento #{value + 1}?", 1, 3600000, 1000, 100);
 		if (num.HasValue)
 		{
+			PushUndo();
 			for (int i = value; i < _macro.Events.Count; i++)
 			{
 				_macro.Events[i].T += num.Value;
@@ -2393,6 +2520,7 @@ public sealed class MainForm : Form
 		{
 			return;
 		}
+		PushUndo();
 		double num2 = (double)num.Value / 100.0;
 		foreach (MacroEvent @event in _macro.Events)
 		{
@@ -2412,6 +2540,7 @@ public sealed class MainForm : Form
 		{
 			return;
 		}
+		PushUndo();
 		foreach (MacroEvent @event in _macro.Events)
 		{
 			@event.T -= t;
@@ -2423,6 +2552,10 @@ public sealed class MainForm : Form
 	{
 		if (_macro.Events.Count <= 0 || !_s.ConfirmClear || MessageBox.Show(this, "Limpar todos os eventos da macro?", "Pulso", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
 		{
+			if (_macro.Events.Count > 0)
+			{
+				PushUndo();
+			}
 			_macro = new Macro();
 			_currentPath = null;
 			_readyName = null;
@@ -2443,6 +2576,208 @@ public sealed class MainForm : Form
 		_grid.Invalidate();
 		RefreshTitle();
 		UpdateStateUi();
+	}
+
+	private static string Snapshot(Macro macro)
+	{
+		return JsonSerializer.Serialize(macro, Macro.JsonOpts);
+	}
+
+	private void PushUndo()
+	{
+		string item = Snapshot(_macro);
+		if (_undo.Count > 0 && _undo[_undo.Count - 1] == item)
+		{
+			return;
+		}
+		_undo.Add(item);
+		if (_undo.Count > UndoLimit)
+		{
+			_undo.RemoveAt(0);
+		}
+		_redo.Clear();
+		UpdateUndoUi();
+	}
+
+	private void Undo()
+	{
+		if (_recording || _playing)
+		{
+			return;
+		}
+		if (_undo.Count == 0)
+		{
+			_lblStatusNote.Text = "Nada para desfazer";
+			return;
+		}
+		_redo.Add(Snapshot(_macro));
+		string json = _undo[_undo.Count - 1];
+		_undo.RemoveAt(_undo.Count - 1);
+		ApplySnapshot(json);
+		_lblState.Text = "Desfeito";
+	}
+
+	private void Redo()
+	{
+		if (_recording || _playing)
+		{
+			return;
+		}
+		if (_redo.Count == 0)
+		{
+			_lblStatusNote.Text = "Nada para refazer";
+			return;
+		}
+		_undo.Add(Snapshot(_macro));
+		string json = _redo[_redo.Count - 1];
+		_redo.RemoveAt(_redo.Count - 1);
+		ApplySnapshot(json);
+		_lblState.Text = "Refeito";
+	}
+
+	private void ApplySnapshot(string json)
+	{
+		Macro? macro = JsonSerializer.Deserialize<Macro>(json, Macro.JsonOpts);
+		if (macro == null)
+		{
+			return;
+		}
+		if (macro.Events == null)
+		{
+			macro.Events = new List<MacroEvent>();
+		}
+		macro.Events.RemoveAll((MacroEvent e) => e == null);
+		macro.Events.Sort((MacroEvent a, MacroEvent b) => a.T.CompareTo(b.T));
+		_macro = macro;
+		_readyName = null;
+		_dirty = true;
+		_lastRowCount = -1;
+		SetRowCount();
+		_grid.Invalidate();
+		RefreshTitle();
+		UpdateStateUi();
+		UpdateUndoUi();
+	}
+
+	private void UpdateUndoUi()
+	{
+		_miUndo.Enabled = _undo.Count > 0;
+		_miRedo.Enabled = _redo.Count > 0;
+	}
+
+	private void ClearHistory()
+	{
+		_undo.Clear();
+		_redo.Clear();
+		UpdateUndoUi();
+	}
+
+	private void DuplicateSelected()
+	{
+		if (_recording || _playing || _macro.IsEmpty)
+		{
+			return;
+		}
+		List<int> indexes = (_grid.SelectedRows.Count > 0
+			? (from DataGridViewRow r in _grid.SelectedRows select r.Index)
+			: ((_grid.CurrentRow == null) ? new List<int>() : new List<int> { _grid.CurrentRow.Index }))
+			.Where((int i) => i >= 0 && i < _macro.Events.Count).Distinct().OrderBy((int i) => i).ToList();
+		if (indexes.Count == 0)
+		{
+			return;
+		}
+		PushUndo();
+		int last = indexes[indexes.Count - 1];
+		List<MacroEvent> block = indexes.Select((int i) => _macro.Events[i]).ToList();
+		long start = block[0].T;
+		long end = block[block.Count - 1].T;
+		long span = Math.Max(0L, end - start);
+		long gap = Math.Max(120L, Math.Min(1000L, span / 10));
+		long delta = span + gap;
+		for (int j = last + 1; j < _macro.Events.Count; j++)
+		{
+			_macro.Events[j].T += delta;
+		}
+		foreach (MacroEvent source in block)
+		{
+			MacroEvent copy = source.Clone();
+			copy.T = source.T + delta;
+			_macro.Events.Add(copy);
+		}
+		_macro.Events.Sort((MacroEvent a, MacroEvent b) => a.T.CompareTo(b.T));
+		AfterEdit();
+		_lblState.Text = $"{block.Count} evento(s) duplicado(s)";
+	}
+
+	private void BuildRecentMenu()
+	{
+		_miRecent.DropDownItems.Clear();
+		List<string> list = _s.RecentFiles.Where((string p) => !string.IsNullOrEmpty(p) && File.Exists(p)).ToList();
+		if (list.Count == 0)
+		{
+			_miRecent.DropDownItems.Add(new ToolStripMenuItem("Nenhum arquivo recente")
+			{
+				Enabled = false
+			});
+			return;
+		}
+		foreach (string path in list)
+		{
+			string file = path;
+			ToolStripMenuItem item = new ToolStripMenuItem(Path.GetFileName(file))
+			{
+				ToolTipText = file
+			};
+			item.Click += delegate
+			{
+				if (ConfirmDiscard())
+				{
+					try
+					{
+						LoadFile(file);
+					}
+					catch (Exception ex)
+					{
+						MessageBox.Show(this, "Falha ao abrir:\r\n" + ex.Message, "Pulso", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+					}
+				}
+			};
+			_miRecent.DropDownItems.Add(item);
+		}
+		_miRecent.DropDownItems.Add(new ToolStripSeparator());
+		_miRecent.DropDownItems.Add(Item("Limpar lista", Keys.None, delegate
+		{
+			_s.RecentFiles.Clear();
+			_s.Save();
+		}));
+	}
+
+	private void AddRecent(string path)
+	{
+		try
+		{
+			path = Path.GetFullPath(path);
+		}
+		catch
+		{
+			return;
+		}
+		_s.RecentFiles.RemoveAll((string p) => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
+		_s.RecentFiles.Insert(0, path);
+		if (_s.RecentFiles.Count > 8)
+		{
+			_s.RecentFiles.RemoveRange(8, _s.RecentFiles.Count - 8);
+		}
+	}
+
+	protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+	{
+		if (keyData == (Keys.Z | Keys.Control | Keys.Shift))
+		{
+			Redo();
+			return true;
+		}
+		return base.ProcessCmdKey(ref msg, keyData);
 	}
 
 	private void OnDragEnter(object? sender, DragEventArgs e)
